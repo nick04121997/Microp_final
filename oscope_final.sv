@@ -25,54 +25,43 @@ endmodule
  * This will have an output which grabs bits (13, 6), or the 8 most significant bits (MSB)
  * of data.
  */
-		/*
-		module adc_com(input logic adc_data,
-					   output logic adc_sclk,
-					   output logic adc_conv,
-					   output logic [7:0] digital_val);
 
-			logic [7:0] temp_value;
-			logic adc_conv_prev;
-			logic adc_conv_curr;
-			logic start_count;
-
-			always_ff @(posedge adc_sclk)
-				begin
-					adc_conv_prev <= adc_conv_curr;
-					adc_conv_curr <= adc_conv;
-				end
-
-			assign start_count = 	(adc_conv_prev == 1'b1) & 
-									(adc_conv_curr == 1'b0);
-
-			always_ff @(posedge ck)
-		  		begin
-					if(~adc_conv)
-					
-				end
-
-		endmodule
-		*/
 module adc_com(input logic osc_clk,
 			   input logic adc_data,
 			   output logic adc_clk,
 			   output logic adc_conv,
-			   output logic write_en,
+			   output logic write_enable,
 			   output logic [7:0] write_data);
 
 	logic [15:0] temp_data;
-	logic [5:0] clk_counter;
+	logic [9:0] clk_counter;
+	logic [4:0] cycle_counter;
 	logic [3:0] data_counter;
-	logic adc_conv_prev, adc_conv_curr, count_start, osc_clk_slow;
 
 	always_ff @(posedge osc_clk)
 		clk_counter <= clk_counter + 1;
 
+	always_ff @(posedge adc_clk)
+		if (~adc_conv) 
+			begin
+				cycle_counter <= cycle_counter + 1;
+				temp_data[15-cycle_counter] <= adc_data;
+			end
 
-	assign adc_clk = clk_counter[5];
+	always_comb
+		begin
+			if (cycle_counter[4] & cycle_counter[0]) 
+					cycle_counter = 5'b0;
+		end
+
+	assign adc_clk = clk_counter[6];
+	assign write_data = temp_data[13:6];
+	assign adc_conv = (cycle_counter[3] & cycle_counter[2] &
+				   	   cycle_counter[1] & cycle_counter[0]);
+	assign write_enable = adc_conv;
+
 
 endmodule
-
 
 /*
  * mem module
@@ -88,7 +77,7 @@ module mem(input logic osc_sclk,
 		   output logic [7:0]read_data);
 	
 	// Declare 25,000 bytes of memory to hold values
-	// These will consists of the 8 MSBs from the 12 bit width
+	// These will consist of the 8 MSBs from the 12 bit width
 	// outputted by the ADC. 
 	logic [7:0] mem[24999:0];
 
@@ -118,11 +107,11 @@ module addr_gen(input logic osc_clk,
 
 	always_ff @(posedge osc_clk)
 		if (/*writing*/) write_address <= write_address + 1;
-		if (reset) write_address <= 0;
+		if (/*reset*/) write_address <= 0;
 
 	always_ff @(posedge pi_clk)
 		if (/*reading*/) read_address <= read_address + 1;
-		if (reset) read_address <= 0;
+		if (/*reset*/) read_address <= 0;
 
 	always_comb
 		begin
@@ -132,7 +121,17 @@ module addr_gen(input logic osc_clk,
 
 endmodule // module
 
+module async_fifo(input logic write_enable, write_clk,
+				  input logic read_enable, read_clk,
+				  input logic [7:0] write_data,
+				  output logic [7:0] read_data,
+				  output logic write_full,
+				  output logic read_full);
 
+	logic [15:0] write_address, read_address;
+	logic [15:0] write_ptr, read_ptr,
+
+endmodule
 
 
 
