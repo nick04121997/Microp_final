@@ -7,14 +7,14 @@
  * from the RAM buffer. Once the Pi reads all the data, it will
  * signal the FPGA to read from the ADC and refill the buffer.
  */
-module oscope_final (input logic osc_clk,
-					 input logic pi_clk,
-					 input logic pi_done,
-					 input logic adc_data,
-					 output logic adc_conv,
-					 output logic adc_clk,
-					 output logic pi_signal_flag,
-					 output logic pi_data);
+module oscope_final(input logic osc_clk,
+					input logic pi_clk,
+					input logic pi_done,
+					input logic adc_data,
+					output logic adc_conv,
+					output logic adc_clk,
+					output logic pi_signal_flag,
+					output logic pi_data);
 				
 endmodule
 
@@ -42,7 +42,7 @@ module adc_com(input logic osc_clk,
 		clk_counter <= clk_counter + 1;
 
 	always_ff @(posedge adc_clk)
-		if (~adc_conv) 
+		if (!adc_conv) 
 			begin
 				cycle_counter <= cycle_counter + 1;
 				temp_data[15-cycle_counter] <= adc_data;
@@ -51,7 +51,7 @@ module adc_com(input logic osc_clk,
 	always_comb
 		begin
 			if (cycle_counter[4] & cycle_counter[0]) 
-					cycle_counter = 5'b0;
+				cycle_counter = 5'b0;
 		end
 
 	assign adc_clk = clk_counter[6];
@@ -63,75 +63,140 @@ module adc_com(input logic osc_clk,
 
 endmodule
 
-/*
- * mem module
- * Used for interfacing with the embedded memory on the FPGA
- */
-
-module mem(input logic osc_sclk,
-		   input logic pi_sclk,
-		   input logic write_en,
-		   input logic read_en,
-		   input logic [14:0]adr,
-		   input logic [7:0]write_data,
-		   output logic [7:0]read_data);
-	
-	// Declare 25,000 bytes of memory to hold values
-	// These will consist of the 8 MSBs from the 12 bit width
-	// outputted by the ADC. 
-	logic [7:0] mem[24999:0];
-
-	always @(posedge osc_sclk)
-		begin
-			if (write_en) mem[adr] <= write_data;
-		end
-
-	always @(posedge pi_sclk)
-		begin
-			if (read_en) read_data <= mem[adr];
-		end
-
-endmodule
-
-
-module pi_com(input logic pi_clk,
-			  );
-
-endmodule 
-
-module addr_gen(input logic osc_clk,
-				input logic pi_clk,
-				output logic [14:0] address);
-
-	logic [14:0] write_address, read_address;
-
-	always_ff @(posedge osc_clk)
-		if (/*writing*/) write_address <= write_address + 1;
-		if (/*reset*/) write_address <= 0;
-
-	always_ff @(posedge pi_clk)
-		if (/*reading*/) read_address <= read_address + 1;
-		if (/*reset*/) read_address <= 0;
-
-	always_comb
-		begin
-			if (/*writing*/) address = write_address;
-			else if (/*reading*/) address = read_address;
-		end
-
-endmodule // module
-
 module async_fifo(input logic write_enable, write_clk,
 				  input logic read_enable, read_clk,
 				  input logic [7:0] write_data,
 				  output logic [7:0] read_data,
 				  output logic write_full,
-				  output logic read_full);
+				  output logic read_empty);
 
 	logic [15:0] write_address, read_address;
-	logic [15:0] write_ptr, read_ptr,
+	logic [15:0] write_ptr, read_ptr, write_sync, read_sync;
 
 endmodule
+
+module mem_fifo(input logic write_enable, write_full, write_clk,
+				input logic [15:0] write_address, read_address,
+				input logic [7:0] write_data,
+				output logic [7:0] read_data);
+
+	logic [7:0] mem [24999:0];
+
+	always_ff @(posedge write_clk)
+		if (write_enable & !write_full)
+			mem[write_address] <= write_data
+
+	assign read_data = mem[read_address];
+
+endmodule
+
+/*
+ * sync_read module
+ * Synchronizes the read pointer into the write clock domain
+ */
+module sync_read(input logic write_clk,
+				 input logic [15:0] read_ptr,
+				 output logic [15:0] read_sync);
+
+	logic [15:0] read_sync_prev;
+
+	always_ff @(posedge write_clk)
+		{read_sync, read_sync_prev} <= {read_sync_prev, read_ptr};
+
+endmodule
+
+/*
+ * sync_write module
+ * Synchronizes the write pointer into the read clock domain
+ */
+module sync_write(input logic read_clk,
+				  input logic [15:0] write_ptr,
+				  output logic [15:0] write_sync);
+
+	logic [15:0] write_sync_prev;
+
+	always_ff @(posedge read_clk)
+		{write_sync, write_sync_prev} <= {read_sync_prev, write_ptr};
+
+endmodule
+
+module empty_fifo(input logic read_enable, read_clk,
+				  input logic [15:0] read_sync,
+				  output logic read_empty,
+				  output logic [15:0] read_address,
+				  output logic [15:0] read_ptr);
+
+	logic [15:0] read_bin, read_bin_next;
+	logic [15:0] read_gray_next;
+	logic temp_empty;
+
+	always_ff @(posedge read_clk) 
+		{read_bin, read_ptr} <= {read_bin_next, read_gray_next}
+
+	assign read_address = read_bin[15:0];
+	assign read_bin_next = read_bin + (read_enable & !read_empty);
+	assign read_gray_next = (read_bin_next >> 1) ^ read_bin_next;
+	assign temp_empty = (read_gray_next == read_sync);
+
+	always_ff @(posedge read_clk)
+		read_empty <= temp_empty;
+
+endmodule
+
+
+module full_fifo(input logic write_enable, write_clk,
+				 input logic [15:0] write_sync,
+				 output logic write_full,
+				 output logic [15:0] write_address,
+				 output logic [15:0] write_ptr);
+
+	logic [15:0] write_bin, write_bin_next;
+	logic [15:0] write_gray_next;
+	logic temp_full;
+
+	always_ff @(posedge write_clk) 
+		{write_bin, write_ptr} <= {write_bin_next, write_gray_next}
+
+	assign write_address = write_bin[15:0];
+	assign write_bin_next = write_bin + (write_enable + !write_full);
+	assign write_gray_next = (write_bin_next >> 1) ^ write_bin_next;
+	assign temp_full = (write_gray_next == {!write_sync[15:14],write_sync[14:0]});
+
+	always_ff @(posedge write_clk)
+		write_full <= temp_full;
+
+endmodule
+
+module pi_com(input logic read_empty,
+			  input logic [7:0] read_data,
+			  input logic pi_clk,
+			  output logic pi_data
+			  output logic pi_signal_flag);
+
+	logic [2:0] pi_counter;
+	logic read_empty_prev, read_empty_curr;
+
+	always_ff @(posedge pi_clk)
+		begin
+			{read_empty_prev, read_empty_curr} <= {read_empty_curr, read_empty};
+			if (read_empty_prev == '1 && read_empty_curr == '0)
+				pi_counter <= 0;
+				pi_signal_flag <= 1;
+			else if (read_empty == '0)
+				begin
+					pi_data <= read_data[7-pi_counter];
+					pi_counter <= pi_counter + 1;
+				end
+			else
+				pi_signal_flag <= 0;
+		end
+
+endmodule
+
+
+
+
+
 
 
 
