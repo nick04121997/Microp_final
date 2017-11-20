@@ -1,0 +1,226 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/Users/nick/Documents/Microp_final/Sim2
+vadc_com
+Z0 DXx6 sv_std 3 std 0 22 WmjPaeP=7F5?QFXzJ>D[Q2
+Z1 !s110 1511159441
+!i10b 1
+!s100 NOFjijDbc^@c4lV`c5@mE0
+IO2UHDBOlco0hLQj[Nz:;61
+Z2 VDg1SIo80bB@j0V0VzS_@n1
+Z3 !s105 oscope_v2_sv_unit
+S1
+Z4 dC:/Users/nick/Documents/Microp_final/Sim_Complete
+Z5 w1511159346
+Z6 8C:/Users/nick/Documents/Microp_final/Sim_Complete/oscope_v2.sv
+Z7 FC:/Users/nick/Documents/Microp_final/Sim_Complete/oscope_v2.sv
+L0 48
+Z8 OP;L;10.4a;61
+r1
+!s85 0
+31
+Z9 !s108 1511159441.000000
+Z10 !s107 C:/Users/nick/Documents/Microp_final/Sim_Complete/oscope_v2.sv|
+Z11 !s90 -reportprogress|300|-work|work|-sv|-stats=none|C:/Users/nick/Documents/Microp_final/Sim_Complete/oscope_v2.sv|
+!s101 -O0
+!i113 1
+Z12 o-work work -sv -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact -O0
+vasync_fifo
+R0
+R1
+!i10b 1
+!s100 n210kR]BMe<CKSCOd6S]k0
+IM1Q[^h`F9;OK[l8C5mMLf3
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 101
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vempty_fifo
+R0
+R1
+!i10b 1
+!s100 =_o:0N?>jb99aeN<89z652
+IK1V]h_dFmV0YO]WLEfSF_2
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 158
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vfull_fifo
+R0
+R1
+!i10b 1
+!s100 IoYi2a<IfD0X5_`QMA[?e0
+IEEMDA:]>3Yg^<kFS]7TkV1
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 182
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vmem_fifo
+R0
+R1
+!i10b 1
+!s100 [azP9:z]Y95MBIK@7ZJ4V3
+Ij;Eh6FX=LSlEI7XeoICh61
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 113
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+voscope_v2
+R0
+R1
+!i10b 1
+!s100 ZzY5kP[iD6g:aH9]@ozeZ3
+IX_DUa1CLL_KJe2To><fQ90
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 10
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vpi_com
+R0
+R1
+!i10b 1
+!s100 5D1a6BdoG:B4`X1c=Uj4N0
+IAUbcdo`P9PIbYeD?g01db1
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 205
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vsync_read
+R0
+R1
+!i10b 1
+!s100 FmP7gKVYEWigVMm@73BNT1
+ITCnAHeO]ibTB;beL`glUW0
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 132
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12
+vsync_write
+R0
+R1
+!i10b 1
+!s100 LmecG=]B93MFCK6c@_5>i2
+IKkE9inV]:I@`ocTRLdPfY1
+R2
+R3
+S1
+R4
+R5
+R6
+R7
+L0 147
+R8
+r1
+!s85 0
+31
+R9
+R10
+R11
+!s101 -O0
+!i113 1
+R12

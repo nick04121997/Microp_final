@@ -1,1 +1,9 @@
+C:/Users/nick/Documents/Microp_final/Sim2/testbench.sv {1 {vlog -work work -sv -stats=none C:/Users/nick/Documents/Microp_final/Sim2/testbench.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module testbench
+-- Compiling module adc_com
 
+Top level modules:
+	testbench
+
+} {} {}}
