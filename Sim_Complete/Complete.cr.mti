@@ -1,0 +1,17 @@
+C:/Users/nick/Documents/Microp_final/Sim_Complete/oscope_v2.sv {1 {vlog -work work -sv -stats=none {C:\Users\nick\Documents\Microp_final\Sim_Complete\oscope_v2.sv}
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module oscope_v2
+-- Compiling module adc_com
+-- Compiling module async_fifo
+-- Compiling module mem_fifo
+-- Compiling module sync_read
+-- Compiling module sync_write
+-- Compiling module empty_fifo
+-- Compiling module full_fifo
+-- Compiling module pi_com
+
+Top level modules:
+	oscope_v2
+	sync_write
+
+} {} {}}
