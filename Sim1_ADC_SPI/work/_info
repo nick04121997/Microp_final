@@ -1,0 +1,34 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/Modeltech_pe_edu_10.4a/examples
+vadc_com
+DXx6 sv_std 3 std 0 22 WmjPaeP=7F5?QFXzJ>D[Q2
+!s110 1511148131
+!i10b 1
+!s100 z]PYRd:9<gN77Y8b3aV;o1
+IZjGbEhgzz1bj^^zA^2MMJ0
+VDg1SIo80bB@j0V0VzS_@n1
+!s105 testbench_sv_unit
+S1
+dC:/Users/nick/Documents/Microp_final/Sim1_ADC_SPI
+w1511147965
+8C:/Users/nick/Documents/Microp_final/Sim1_ADC_SPI/testbench.sv
+FC:/Users/nick/Documents/Microp_final/Sim1_ADC_SPI/testbench.sv
+L0 41
+OP;L;10.4a;61
+r1
+!s85 0
+31
+!s108 1511148131.000000
+!s107 C:/Users/nick/Documents/Microp_final/Sim1_ADC_SPI/testbench.sv|
+!s90 -reportprogress|300|-work|work|-sv|-stats=none|C:/Users/nick/Documents/Microp_final/Sim1_ADC_SPI/testbench.sv|
+!s101 -O0
+!i113 1
+o-work work -sv -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact -O0

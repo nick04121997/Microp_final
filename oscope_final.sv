@@ -41,17 +41,14 @@ module adc_com(input logic osc_clk,
 		clk_counter <= clk_counter + 1;
 
 	always_ff @(posedge adc_clk)
-		if (!adc_conv) 
+		if (cycle_counter[4] & cycle_counter[0]) 
+				cycle_counter <= 5'b0;
+
+		else if (!adc_conv) 
 			begin
 				cycle_counter <= cycle_counter + 1;
 				temp_data[15-cycle_counter] <= adc_data;
 			end
-
-	always_comb
-		begin
-			if (cycle_counter[4] & cycle_counter[0]) 
-				cycle_counter = 5'b0;
-		end
 
 	assign adc_clk = clk_counter[6];
 	assign write_data = temp_data[13:6];
