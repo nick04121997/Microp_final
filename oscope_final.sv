@@ -9,7 +9,6 @@
  */
 module oscope_final(input logic osc_clk,
 					input logic pi_clk,
-					input logic pi_done,
 					input logic adc_data,
 					output logic adc_conv,
 					output logic adc_clk,
