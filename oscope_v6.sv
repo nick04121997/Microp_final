@@ -75,80 +75,153 @@ module adc_com(input logic osc_clk,
 		if (reset)
 		begin
 			state <= S0;
-			temp_data <= 16'b0;
 		end
-		// state transition 
+		// state transition and loading of temp_data
 		else
 		begin
 			state <= nexstate;
+			case (state)
+				S0:		; // do nothing
+				S1:		temp_data[15] <= adc_data;
+				S2:		temp_data[14] <= adc_data;
+				S3:		temp_data[13] <= adc_data;
+				S4:		temp_data[12] <= adc_data;
+				S5:		temp_data[11] <= adc_data;
+				S6:		temp_data[10] <= adc_data;
+				S7:		temp_data[9] <= adc_data;
+				S8:		temp_data[8] <= adc_data;
+				S9:		temp_data[7] <= adc_data;
+				S10:		temp_data[6] <= adc_data;
+				S11:		temp_data[5] <= adc_data;
+				S12:		temp_data[4] <= adc_data;
+				S13:		temp_data[3] <= adc_data;
+				S14:		temp_data[2] <= adc_data;
+				S15:		temp_data[1] <= adc_data;
+				S16:		temp_data[0] <= adc_data;
+				S17:		; // do nothing
+				default:	; // do nothing
+			endcase
 		end
 	end
 
 	// state transition logic, adc_conv logic, write_enable logic,
-	// temp_data loading
+	
 	always_comb
 	begin
 		case (state)
-			S0: 		adc_conv = 1;
-						write_enable = 0;
-						nexstate = S1;
+			S0: 		begin
+							adc_conv = 1;
+							write_enable = 0;
+							nexstate = S1;
+						end
 
-			S1:			adc_conv = 0;
-						nexstate = S2;
-						temp_data[15] = adc_data;
+			S1:			begin
+							adc_conv = 0;
+							write_enable = 0;
+							nexstate = S2;
+						end
 
-			S2:			nexstate = S3;
-						temp_data[14] = adc_data;
+			S2:			begin
+							nexstate = S3;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S3:			nexstate = S4;
-						temp_data[13] = adc_data;
+			S3:			begin
+							nexstate = S4;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S4:			nexstate = S5;
-						temp_data[12] = adc_data;
+			S4:			begin 
+							nexstate = S5;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S5: 		nexstate = S6;
-						temp_data[11] = adc_data;
+			S5: 		begin
+							nexstate = S6;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S6:			nexstate = S7;
-						temp_data[10] = adc_data;
+			S6:			begin
+							nexstate = S7;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S7:			nexstate = S8;
-						temp_data[9] = adc_data;
+			S7:			begin
+							nexstate = S8;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S8:			nexstate = S9;
-						temp_data[8] = adc_data;
+			S8:			begin
+							nexstate = S9;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S9:			nexstate = S10;
-						temp_data[7] = adc_data;
+			S9:			begin
+							nexstate = S10;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S10: 		nexstate = S11;
-						temp_data[6] = adc_data;
+			S10: 		begin
+							nexstate = S11;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S11:		nexstate = S12;
-						temp_data[5] = adc_data;
+			S11:		begin
+							nexstate = S12;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S12:		nexstate = S13;
-						temp_data[4] = adc_data;
+			S12:		begin
+							nexstate = S13;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S13:		nexstate = S14;
-						temp_data[3] = adc_data;
+			S13:		begin
+							nexstate = S14;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S14:		nexstate = S15;
-						temp_data[2] = adc_data;
+			S14:		begin
+							nexstate = S15;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S15: 		nexstate = S16;
-						temp_data[1] = adc_data;
+			S15: 		begin
+							nexstate = S16;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S16:		nexstate = S17;
-						temp_data[0] = adc_data;
+			S16:		begin
+							nexstate = S17;
+							adc_conv = 0;
+							write_enable = 0;
+						end
 
-			S17:		nexstate = S0;
-						write_enable = 1;
-						adc_conv = 1;
+			S17:		begin
+							nexstate = S0;
+							write_enable = 1;
+							adc_conv = 1;
+						end
 
-			default:	nexstate = S0;
-						adc_conv = 1;
-						write_enable = 0;
+			default:	begin
+							nexstate = S0;
+							adc_conv = 1;
+							write_enable = 0;
+						end
 
 		endcase // state
 	end
