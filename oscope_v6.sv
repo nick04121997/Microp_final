@@ -27,6 +27,7 @@ module oscope_v2(input logic osc_clk,
 
 endmodule
 
+
 /*
  * adc_com
  * Used for sending the start bit to the ADC and then reading the 16 bits
@@ -41,7 +42,8 @@ module adc_com(input logic osc_clk,
 			   output logic adc_clk,
 			   output logic adc_conv,
 			   output logic write_enable,
-			   output logic [7:0] write_data);
+			   output logic [7:0] write_data,
+				output logic led);
 	
 	// State declarations
 	typedef enum logic [4:0] {S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,
@@ -51,7 +53,7 @@ module adc_com(input logic osc_clk,
 	// temp register
 	logic [15:0] temp_data;
 	// counter for adc_clk
-	logic [6:0] counter;
+	logic [24:0] counter;
 
 	// oscillator clock to set the adc_clk
 	always_ff @(posedge osc_clk or posedge reset)
@@ -226,8 +228,9 @@ module adc_com(input logic osc_clk,
 		endcase // state
 	end
 
-	assign adc_clk = counter[6];
+	assign adc_clk = counter[22];
 	assign write_data = temp_data[12:5];
+	assign led = counter[24];
 
 endmodule
 
@@ -364,6 +367,15 @@ module mem(input logic adc_clk,
 	end
 
 endmodule
+
+/*
+ * pi_com
+ * Used for sending the start bit to the ADC and then reading the 16 bits
+ * it outputs where the first 2 bits, (15, 14) and the last 2 (1,0) bits are for padding. 
+ * This will have an output which grabs bits (13, 6), or the 8 most significant bits (MSB)
+ * of data.
+ */
+
 
 module pi_com(input logic [7:0] read_data,
 			  input logic pi_clk,
