@@ -42,52 +42,119 @@ module adc_com(input logic osc_clk,
 			   output logic adc_conv,
 			   output logic write_enable,
 			   output logic [7:0] write_data);
+	
+	// State declarations
+	typedef enum logic [4:0] {S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,
+							  S10, S11, S12, S13, S14, S15, S16, S17, S18, S19} statetype;
+	statetype state, nexstate;
 
+	// temp register
 	logic [15:0] temp_data;
-	logic [9:0] clk_counter;
-	logic [4:0] cycle_counter;
+	// counter for adc_clk
+	logic [6:0] counter;
 
+	// oscillator clock to set the adc_clk
 	always_ff @(posedge osc_clk or posedge reset)
-		if (reset) clk_counter <= 0;
-		else clk_counter <= clk_counter + 1;
-
-	always_ff @(posedge adc_clk or posedge reset)	
 	begin
-		if (reset) 
+		// reset
+		if (reset)
 		begin
-			cycle_counter <= 0;
-			adc_conv <= 1;
-			write_enable <= 0;
+			counter <= 0;
 		end
-		// if the counter is at 18, reset it to 0
-		// set conv low, and turn off write enable
-		else if (cycle_counter == 18) 
+		// else sample
+		else
 		begin
-			cycle_counter <= 0;
-			adc_conv <= 0;
-			write_enable <= 0;
-		end
-		// If the cycle counter is in ranges, then shift adc_data
-		// into the temp data register
-		else if (cycle_counter < 16 && !adc_conv)  
-		begin
-			temp_data[15-cycle_counter] <= adc_data;
-			cycle_counter <= cycle_counter + 1;
-			adc_conv <= adc_conv;
-		end
-
-		// if the counter is at 17, then set conv high, and 
-		// set write enable high
-		else 
-		begin
-			cycle_counter <= cycle_counter + 1;
-			adc_conv <= 1;
-			write_enable <= 1;
+			counter <= counter + 1;
 		end
 	end
 
-	assign adc_clk = clk_counter[6];
-	assign write_data = temp_data[13:6];
+	// adc_clk 
+	always_ff @(posedge adc_clk or posedge reset)
+	begin
+		// reset
+		if (reset)
+		begin
+			state <= S0;
+			temp_data <= 16'b0;
+		end
+		// state transition 
+		else
+		begin
+			state <= nexstate;
+		end
+	end
+
+	// state transition logic, adc_conv logic, write_enable logic,
+	// temp_data loading
+	always_comb
+	begin
+		case (state)
+			S0: 		adc_conv = 1;
+						write_enable = 0;
+						nexstate = S1;
+
+			S1:			adc_conv = 0;
+						nexstate = S2;
+						temp_data[15] = adc_data;
+
+			S2:			nexstate = S3;
+						temp_data[14] = adc_data;
+
+			S3:			nexstate = S4;
+						temp_data[13] = adc_data;
+
+			S4:			nexstate = S5;
+						temp_data[12] = adc_data;
+
+			S5: 		nexstate = S6;
+						temp_data[11] = adc_data;
+
+			S6:			nexstate = S7;
+						temp_data[10] = adc_data;
+
+			S7:			nexstate = S8;
+						temp_data[9] = adc_data;
+
+			S8:			nexstate = S9;
+						temp_data[8] = adc_data;
+
+			S9:			nexstate = S10;
+						temp_data[7] = adc_data;
+
+			S10: 		nexstate = S11;
+						temp_data[6] = adc_data;
+
+			S11:		nexstate = S12;
+						temp_data[5] = adc_data;
+
+			S12:		nexstate = S13;
+						temp_data[4] = adc_data;
+
+			S13:		nexstate = S14;
+						temp_data[3] = adc_data;
+
+			S14:		nexstate = S15;
+						temp_data[2] = adc_data;
+
+			S15: 		nexstate = S16;
+						temp_data[1] = adc_data;
+
+			S16:		nexstate = S17;
+						temp_data[0] = adc_data;
+
+			S17:		nexstate = S0;
+						write_enable = 1;
+						adc_conv = 1;
+
+			default:	nexstate = S0;
+						adc_conv = 1;
+						write_enable = 0;
+
+		endcase // state
+	end
+
+	assign adc_clk = counter[6];
+	assign write_data = temp_data[12:5];
 
 endmodule
 
@@ -98,8 +165,25 @@ module mem(input logic adc_clk,
 		   input logic write_enable,
 		   output logic [7:0] read_data);
 
-	logic [7:0] mem1[9999:0];
-	logic [7:0] mem2[9999:0];
+	logic [7:0] memory[24999:0];
+	logic [14:0] adr;
+
+	typedef enum logic {READ, WRITE} statetype;
+	statetype state;
+
+	always
+
+	always_ff @(posedge adc_clk or posedge reset)
+	begin
+		if (reset) 
+		begin
+			memory <= 0;
+		end
+		else if (state == WRITE & write_enable) memory[adr] <= write_data;
+	end
+
+	always_ff @(posedge adc_clk or posedge reset)
+		if (reset) 
 
 	logic [13:0] w_counter, r_counter;
 	logic [3:0] sub_r_counter;
@@ -214,14 +298,12 @@ module pi_com(input logic [7:0] read_data,
 			  output logic pi_signal_flag);
 
 	logic [2:0] pi_counter;
-	logic read_empty_prev, read_empty_curr;
 
 	always_ff @(posedge pi_clk or posedge reset)
 	begin
 		if (reset)
 		begin
 			pi_data <= 0;
-			read_data <= 8'b0;
 			pi_counter <= 0;
 			pi_signal_flag <= 0;
 		end
