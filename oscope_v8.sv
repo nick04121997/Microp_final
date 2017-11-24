@@ -11,19 +11,22 @@ module oscope_v2(input logic osc_clk,
 				 input logic pi_clk,
 				 input logic adc_data,
 				 input logic reset,
+				 input logic pi_graph_done,
 				 output logic adc_conv,
 				 output logic adc_clk,
 				 output logic pi_signal_flag,
-				 output logic pi_data);
-
-	logic write_enable, write_full, read_empty;			
+				 output logic pi_data
+				 output logic led);
+	
+	logic write_enable, read_done, start_read;
 	logic [7:0] write_data, read_data;
-	logic [15:0] write_address, read_address;
-	logic [15:0] read_ptr, read_sync;
 
-	adc_com adc1(osc_clk, reset, adc_data, adc_clk, adc_conv, write_enable, write_data);
+	adc_com adc1(osc_clk, reset, adc_data, adc_conv, write_enable, write_data, led);
 
-	pi_com pi1(read_empty, read_data, pi_clk, pi_data, pi_signal_flag);
+	memory memory1(adc_clk, reset, pi_clk, write_data, write_enable, pi_graph_done, 
+				   read_done, start_read, read_data);
+
+	pi_com pi1(pi_clk, reset, start_read, read_data, pi_graph_done, pi_signal_flag, pi_data);
 
 endmodule
 
@@ -222,76 +225,66 @@ endmodule
 
 // Working up until this point.
 
-module mem(input logic adc_clk,
-		   input logic reset,
-		   input logic [7:0] write_data,
-		   input logic write_enable,
-		   output logic [7:0] read_data);
+module memory(input logic adc_clk,
+			  input logic reset,
+			  input logic pi_clk,
+			  input logic [7:0] write_data,
+			  input logic write_enable,
+			  input logic pi_graph_done,
+			  output logic read_done,
+			  output logic start_read,
+			  output logic [7:0] read_data);
 
-	// memory bank width of 1 byte and depth of 2^14
-	logic [7:0] memory[16383:0];
-	logic [13:0] write_address, read_address;
-	logic [4:0] read_delay;
+	logic [7:0] mem[4095:0];
+	logic [11:0] write_adr, read_adr;
+	logic [4:0] read_sub_counter;
 
-	// typedef enum logic [2:0] {WRITE, READ, HOLD} statetype;
-	// statetype state, nexstate;
+	always_ff @(posedge adc_clk or posedge reset)
+	begin
+		// reset or the pi has graphed the waveform for time duration
+		if (reset || pi_graph_done) 
+		begin
+			write_adr <= 0;
+		end
+		// if we should write and we are not in read mode then write 
+		// to RAM
+		else if (write_enable && !start_read)
+		begin
+			mem[write_adr] <= write_data;
+			write_adr <= write_adr + 1;
+		end
+		else // do nothing
+	end
 
-	// // state transition
-	// always_ff @(posedge adc_clk or posedge reset)
-	// 	if (reset) state <= WRITE;
-	// 	else state <= nexstate;
-
-	// always_ff @(posedge adc_clk or posedge reset)
-	// begin
-	// 	if (reset) 
-	// 		write_address <= 0;
-	// 	else if (write_enable) 
-	// 	begin
-	// 		memory[write_address] <= write_data;
-	// 		write_address <= write_address + 1;
-	// 	end
-	// 	else // do nothing
-	// end
-
-	// always_comb
-	// begin
-	// 	case (state)
-	// 		// Writing state to increment address each time
-	// 		WRITE:	begin
-	// 					if (write_address == 16383) 
-	// 					begin
-	// 						nexstate = READ;
-	// 						read_address = 0;
-	// 						write_address = 0;
-	// 					end
-	// 					else
-	// 						nexstate = WRITE;
-	// 				end
-	// 		// Read address to send each one to the pi
-	// 		READ:	begin
-	// 					if (read_address == 16383) 
-	// 					begin
-	// 						nexstate = HOLD;
-	// 						read_address = 0;
-	// 						write_address = 0;
-	// 					end
-	// 					else
-	// 						nexstate = READ;
-	// 				end
-	// 		// Wait state to finish when the pi displays plot for 5-10 seconds.
-	// 		HOLD:	begin
-	// 					if (pi_plot_done == 1)	
-	// 					begin
-	// 						nexstate = WRITE;
-	// 						read_address = 0;
-	// 						write_address = 0;
-	// 					end
-	// 					else
-	// 						nexstate = HOLD;
-	// 				end
-	// 	endcase
-	// end
-
+	always_ff @(posedge pi_clk or posedge reset)
+	begin
+		// if the pi finished graphing waveform, then reset 
+		// read_adr which also resets start_read to 0
+		if (reset || pi_graph_done)
+		begin
+			read_adr <= 0;
+			read_sub_counter <= 0;
+		end
+		// if we are in the read mode and not at the end of reading addresses
+		else if (start_read && !read_done)
+		begin
+			// a delay for the read counter because we shift out 8 bits of data 
+			// in one cycle to read_data and it takes 8 cycles after to get 
+			// data from fpga to pi
+			if ((read_sub_counter % 9) == 0)
+			begin
+				read_data <= mem[read_adr];
+				read_adr <= read_adr + 1;
+				read_sub_counter <= 0;
+			end
+			else
+				read_sub_counter <= read_sub_counter + 1;
+		end
+		else // do nothing
+	end
+	
+	assign start_read = (write_adr == 4'd4095);
+	assign read_done = (read_adr == 4'd4095);
 
 endmodule
 
@@ -301,27 +294,105 @@ endmodule
  * 8 bit value from memory and then shifts it out one 
  * bit at a time
  */
-module pi_com(input logic [7:0] read_data,
-			  input logic pi_clk,
-			  output logic pi_data,
-			  output logic pi_signal_flag);
+module pi_com(input logic pi_clk,
+			  input logic reset,
+			  input logic start_read,
+			  input logic [7:0] read_data,
+			  input logic pi_graph_done,
+			  output logic pi_signal_flag,
+			  output logic pi_data);
 
-	logic [2:0] pi_counter;
+	logic [2:0] bit_counter;
+
+	typedef enum logic [3:0] {S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,
+							  S10, S11, S12, S13, S14, S15} statetype;
+	statetype state, nexstate;
 
 	always_ff @(posedge pi_clk or posedge reset)
 	begin
-		if (reset)
+		if (reset || pi_graph_done) state <= S0;
+		else 
 		begin
-			pi_data <= 0;
-			pi_counter <= 0;
-			pi_signal_flag <= 0;
-		end
-		else
-		begin
-			pi_data <= read_data[7-pi_counter];
-			pi_counter <= pi_counter + 1;
+			state <= nexstate;
+			case (state)
+				// do nothing, pi_signal_flag is low
+				S0:		;
+				S1: pi_data <= read_data[7];
+				S2: pi_data <= read_data[6];
+				S3: pi_data <= read_data[5];
+				S4: pi_data <= read_data[4];
+				S5: pi_data <= read_data[3];
+				S6: pi_data <= read_data[2];
+				S7: pi_data <= read_data[1];
+				S8: pi_data <= read_data[0];
+			endcase
 		end
 	end
 
-endmodule
+	always_comb
+	begin
+		case (state)
+			// default state where pi_sig_flag is 0 and we only change states
+			// if the start read is high
+			S0:		begin
+						if (start_read)
+						begin
+							pi_signal_flag = 0;
+							nexstate = S1;
+						end
+						else 
+							nexstate = S0;
+					end
+			// Raise the signal flag high and send over MSB D7
+			S1:		begin
+						pi_signal_flag = 1;
+						nexstate = S2;
+					end
+			// Keep signal flag high and send over D6 bit
+			S2:		begin
+						pi_signal_flag = 1;
+						nexstate = S3;
+					end
+			// D5
+			S3:		begin
+						pi_signal_flag = 1;
+						nexstate = S4;
+					end
+			// D4
+			S4:		begin
+						pi_signal_flag = 1;
+						nexstate = S5;
+					end
+			// D3
+			S5:		begin
+						pi_signal_flag = 1;
+						nexstate = S6;
+					end
+			// D2
+			S6:		begin
+						pi_signal_flag = 1;
+						nexstate = S7;
+					end
+			// D1
+			S7:		begin
+						pi_signal_flag = 1;
+						nexstate = S8;
+					end
+			// D0
+			S8:		begin
+						pi_signal_flag = 1;
+						nexstate = S0;
+					end
+
+			default:	begin
+							nexstate = S0;
+							pi_signal_flag = 0;
+						end
+		endcase
+	end
+
+endmodule // pi_com
+
+
+
 
