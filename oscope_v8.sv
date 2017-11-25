@@ -15,7 +15,7 @@ module oscope_v2(input logic osc_clk,
 				 output logic adc_conv,
 				 output logic adc_clk,
 				 output logic pi_signal_flag,
-				 output logic pi_data
+				 output logic pi_data,
 				 output logic led);
 	
 	logic write_enable, read_done, start_read;
