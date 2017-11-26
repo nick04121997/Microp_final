@@ -14,20 +14,19 @@ module oscope(input logic osc_clk,
 				 input logic pi_graph_done,
 				 output logic adc_conv,
 				 output logic adc_clk,
-				 output logic pi_signal_flag,
+				 output logic data_ready,
 				 output logic pi_data,
-				 output logic read_done,
+				 output logic buffer_read,
 				 output logic led);
-	
-	logic write_enable, reading;
-	logic [7:0] write_data, read_data;
 
-	adc_com adc1(osc_clk, reset, adc_data, adc_clk, adc_conv, write_enable, write_data, led);
+	logic write_enable;
+	logic [7:0] write_data;
 
-	memory memory1(adc_clk, reset, pi_clk, write_data, write_enable, pi_graph_done, 
-				   read_done, reading, read_data);
+	adc_com adc1(osc_clk, reset, adc_data, adc_clk, adc_conv, write_enable,
+				 write_data, led);
 
-	pi_com pi1(pi_clk, reset, reading, read_data, pi_graph_done, pi_signal_flag, pi_data);
+	memory_and_pi mp1(adc_clk, reset, write_data, write_enable, pi_clk,
+					  pi_graph_done, pi_data, data_ready, buffer_read);
 
 endmodule
 
@@ -71,10 +70,7 @@ module adc_com(input logic osc_clk,
 	always_ff @(posedge adc_clk, posedge reset)
 	begin
 		// reset
-		if (reset)
-		begin
-			state <= S0;
-		end
+		if (reset) state <= S0;
 		// state transition and loading of temp_data
 		else
 		begin
@@ -226,169 +222,131 @@ endmodule
 
 // Working up until this point.
 
-module memory(input logic adc_clk,
-			  input logic reset,
-			  input logic pi_clk,
-			  input logic [7:0] write_data,
-			  input logic [11:0] read_adr,
-			  input logic reading_done,
-			  input logic write_enable,
-			  input logic pi_graph_done,
-			  output logic reading,
-			  output logic [7:0] read_data);
+module memory_and_pi(input logic adc_clk,
+					 input logic reset,
+					 input logic [7:0] write_data,
+					 input logic write_enable,
+					 input logic pi_clk,
+					 input logic pi_graph_done,
+					 output logic pi_data,
+					 output logic data_ready,
+					 output logic buffer_read);
 
-	logic [7:0] mem[4095:0];
-	logic [11:0] write_adr;
+	logic [12:0] write_adr, read_adr;
+	logic [7:0] mem[8191:0];
+	logic [7:0] read_data;
+	logic done_writing, done_reading;
 
-	always_ff @(posedge adc_clk, posedge reset)
-	begin
-		// reset or the pi has graphed the waveform for time duration
-		if (reset) 
-			write_adr <= 0;
-		else if (pi_graph_done) 
-			write_adr <= 0;
-		// if we should write and we are not in read mode then write 
-		// to RAM
-		else if (write_enable && !reading)
-		begin
-			mem[write_adr] <= write_data;
-			write_adr <= write_adr + 1;
-		end
-		else ;// do nothing
-	end
-
-	always_comb
-	begin
-		if (reading_done) reading = 0;
-		else reading = (write_adr == 4095);
-	end
-
-	assign read_data = mem[read_adr];
-//what are these addresses? are these the initial addresses?
-endmodule
-
-/*
- * pi_com
- * Used for sending data from memory to the pi. Reads in a 
- * 8 bit value from memory and then shifts it out one 
- * bit at a time
- */
-module pi_com(input logic pi_clk,
-			  input logic reset,
-			  input logic reading,
-			  input logic [7:0] read_data,
-			  input logic pi_graph_done,
-			  output logic pi_signal_flag,
-			  output logic pi_data,
-			  output logic [11:0] read_adr
-			  output logic reading_done);
-
-	typedef enum logic [3:0] {S0, S1, S2, S3, S4, S5, S6, S7, S8, S9,
-							  S10, S11, S12, S13, S14, S15} statetype;
+	typedef enum logic [3:0] {S0, S1, S2, S3, S4, S5, S6, S7, S8} statetype;
 	statetype state, nexstate;
 
-	always_ff @(posedge pi_clk, posedge reset)
-		if (reset) state <= 0;
-		else if (pi_graph_done) state <= 0;
-		else state <= nexstate;
+	// done_writing should only be high if the write address has reached
+	// the end of the buffer and only be reset when the write_adr changes
+	always_ff @(posedge adc_clk, posedge reset)
+		if (reset) done_writing <= 0;
+		else if (write_adr == 8191) done_writing <= 1;
+		else if (pi_graph_done) done_writing <= 0;
+		else done_writing <= 0;
 
+	// write_adr should only increment when we write a value to memory and
+	// will reset to 0 if the pi has finished graphing.
+	// If in the done_writing then it should remain at the last address until
+	// graph signal
+	always_ff @(posedge adc_clk, posedge reset)
+		if (reset) write_adr <= 0;
+		else if (done_writing) write_adr <= write_adr;
+		else if (pi_graph_done) write_adr <= 0;
+		else 
+		begin
+			if (write_enable) 
+			begin
+				mem[write_adr] <= write_data;
+				write_adr <= write_adr + 1;
+			end
+			else ; // do nothing
+		end
+
+	// Only transition to the next state when we finished writing and we are
+	// not finished reading
+	always_ff @(posedge pi_clk, posedge reset)
+		if (reset) state <= S0;
+		else if (pi_graph_done) state <= S0;
+		else if (done_writing && !done_reading) state <= nexstate;
+		else state <= S0;
+
+	// Logic for controlling the read address, only increment the address 
+	// when we reach state 8 for read logic
 	always_ff @(posedge pi_clk, posedge reset)
 		if (reset) read_adr <= 0;
 		else if (pi_graph_done) read_adr <= 0;
 		else if (state == S8) read_adr <= read_adr + 1;
+		else read_adr <= 0;
 
+	// logic for which bits to shift out to pi_data
+	// read_data is a temporary value that holds mem[read_adr]
 	always_ff @(posedge pi_clk, posedge reset)
-	begin
 		if (reset) pi_data <= 0;
 		else if (pi_graph_done) pi_data <= 0;
 		else 
 		begin
 			case (state)
-				// do nothing, pi_signal_flag is low
-				S0:		;
-				// Shift D7 (MSB) out
-				S1: pi_data <= read_data[7];
-				S2: pi_data <= read_data[6];
-				S3: pi_data <= read_data[5];
-				S4: pi_data <= read_data[4];
-				S5: pi_data <= read_data[3];
-				S6: pi_data <= read_data[2];
-				S7: pi_data <= read_data[1];
-				// shift D0 (LSB)
+				S0:	; 
+				S1:	pi_data <= read_data[7];
+				S2:	pi_data <= read_data[6];
+				S3:	pi_data <= read_data[5];
+				S4:	pi_data <= read_data[4];
+				S5:	pi_data <= read_data[3];
+				S6:	pi_data <= read_data[2];
+				S7:	pi_data <= read_data[1];
 				S8:	pi_data <= read_data[0];
 			endcase
 		end
-	end
 
+	// next state logic for the reading portion
 	always_comb
 	begin
 		case (state)
-			// default state where pi_sig_flag is 0 and we only change states
-			// if the start read is high
-			S0:		begin
-						if (reading)
-						begin
-							pi_signal_flag = 0;
-							nexstate = S1;
-						end
-						else 
-						begin
-							nexstate = S0;
-							pi_signal_flag = 0;
-						end
-					end
-			// Raise the signal flag high and send over MSB D7
-			S1:		begin
-						pi_signal_flag = 1;
-						nexstate = S2;
-					end
-			// Keep signal flag high and send over D6 bit
-			S2:		begin
-						pi_signal_flag = 1;
-						nexstate = S3;
-					end
-			// D5
-			S3:		begin
-						pi_signal_flag = 1;
-						nexstate = S4;
-					end
-			// D4
-			S4:		begin
-						pi_signal_flag = 1;
-						nexstate = S5;
-					end
-			// D3
-			S5:		begin
-						pi_signal_flag = 1;
-						nexstate = S6;
-					end
-			// D2
-			S6:		begin
-						pi_signal_flag = 1;
-						nexstate = S7;
-					end
-			// D1
-			S7:		begin
-						pi_signal_flag = 1;
-						nexstate = S8;
-					end
-			// D0
-			S8:		begin
-						pi_signal_flag = 1;
-						nexstate = S0;
-					end
 
-			default:	begin
-							nexstate = S0;
-							pi_signal_flag = 0;
-						end
+			S0: begin
+					if (!done_writing) nexstate = S0;
+					else if (!done_reading) nexstate = S1;
+					else nexstate = S0;
+				end
+
+			S1:	nexstate = S2;
+			S2: nexstate = S3;
+			S3:	nexstate = S4;
+			S4:	nexstate = S5;
+			S5:	nexstate = S6;
+			S6:	nexstate = S7;
+			S7:	nexstate = S8;
+			S8:	nexstate = S0;
+			default: nexstate = S0;
 		endcase
 	end
 
-	assign reading_done = ((read_adr == 4095) & (state == S8));
+	// logic for the data_ready flag
+	always_comb
+	begin
+		case (state)
+			S0:	data_ready = 0;
+			S1: data_ready = 1;
+			S2: data_ready = 1;
+			S3: data_ready = 1;
+			S4: data_ready = 1;
+			S5: data_ready = 1;
+			S6: data_ready = 1;
+			S7: data_ready = 1;
+			S8: data_ready = 1;
+			default: data_ready = 0;
+		endcase
+	end
 
-endmodule // pi_com
+	assign read_data = mem[read_adr];
+	assign done_reading = ((read_adr == 8191) && (state == S8));
+	assign buffer_read = done_reading;
 
+endmodule
 
 
 
