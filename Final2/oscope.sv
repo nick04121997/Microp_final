@@ -263,19 +263,24 @@ module mem_pi(input logic adc_clk,
 			end
 			else ; // do nothing
 		end
-		
+	
+	// How to transition to the next state when we are in the read mode
+	// aka. when done_writing is on	
 	always_ff @(posedge pi_clk, posedge reset)
 		if (reset) state <= S0;
 		else if (pi_graph_done) state <= S0;
 		else if (done_writing) state <= nexstate;
 		else state <= state;
 		
+	// how to change the read_adr, once we get to state S8, all bits of one 
+	// byte have been shifted out and so we increment address
 	always_ff @(posedge pi_clk, posedge reset)
 		if (reset) read_adr <= 0;
 		else if (pi_graph_done) read_adr <= 0;
 		else if (state == S8) read_adr <= read_adr + 1;
 		else read_adr <= read_adr;
 		
+	// How to shift data out of the FPGA to Pi
 	always_ff @(posedge pi_clk, posedge reset)
 		if (reset) pi_data <= 0;
 		else if (pi_graph_done) pi_data <= 0;
@@ -293,7 +298,8 @@ module mem_pi(input logic adc_clk,
 				S8:	pi_data <= read_data[0];
 			endcase
 		end
-		
+
+	// Next state logic for the read mode		
 	always_comb
 	begin
 		case (state)
@@ -302,9 +308,8 @@ module mem_pi(input logic adc_clk,
 					else if (done_writing) nexstate = S1;
 					else nexstate = S0;
 				end
-
 			S1:	nexstate = S2;
-			S2: 	nexstate = S3;
+			S2: nexstate = S3;
 			S3:	nexstate = S4;
 			S4:	nexstate = S5;
 			S5:	nexstate = S6;
@@ -315,6 +320,7 @@ module mem_pi(input logic adc_clk,
 		endcase
 	end	
 	
+	// data_ready to tell the pi when it can start reading bits
 	always_comb
 	begin
 		case (state)

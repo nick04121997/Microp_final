@@ -1,0 +1,12 @@
+-- How to do SPI on the pi to the FPGA but have the FPGA queue when the data is ready?
+
+-- Is the SCLK only going when we call spiSendReceive? 
+
+-- Do we need to actually send anything over for SPI? 
+	- Current structure seems to not need MOSI at the moment.
+
+-- How to have counter increment only when we receive data?
+
+-- General Verilog structure for the SPI module as well as current state machine.
+
+done writing flag goes to pi, have the read_adr counter be incremented on the pi sclk
