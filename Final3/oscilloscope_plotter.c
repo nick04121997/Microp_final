@@ -9,14 +9,12 @@
 #include "EasyPIO.h"
 #include "gnuplot_i.h"
 
+#define DATA_REQ 26
 #define DONE_READING 27
 #define PI_GRAPH_DONE 22
-#define full // add pin number here
+#define FULL 19
 #define HIGH 1
 #define LOW 0
-
-#define NUM_POINTS 5
-#define NUM_COMMANDS 2
 
 int main(void)
 {
@@ -33,7 +31,8 @@ int main(void)
 	spiInit(clock_speed, 0);
 	pinMode(DONE_READING, INPUT);
 	pinMode(PI_GRAPH_DONE, OUTPUT);
-	pinMode(full, INPUT);
+	pinMode(FULL, INPUT);
+	pinMode(DATA_REQ, OUTPUT);
 
 	FILE *gnuplot = popen("gnuplot", "w");
 	fprintf(gnuplot, "plot '-'\n");
@@ -44,6 +43,7 @@ int main(void)
 		// after set PI_GRAPH_DONE high to reset all adr on FPGA and clear
 		// gnuplot and reset counter
 		if (digitalRead(DONE_READING)) {
+			printf("done reading: %d\n", counter);
 			fprintf(gnuplot, "e\n");
 			delayMillis(5000);
 			fflush(gnuplot);
@@ -57,8 +57,11 @@ int main(void)
 		// If we have finished writing to the buffer and we are not plotting
 		// we are in the read mode so we should keep getting voltage values 
 		// over SPI from FPGA
-		else if (digitalRead(full)) {
-			volt_pre_scale = spiSendReceive(/* Add code here */);
+		else if (digitalRead(FULL)) {
+			printf("FULL: %d\n", counter);
+			digitalWrite(DATA_REQ, HIGH);
+			volt_pre_scale = spiSendReceive(0);
+			digitalWrite(DATA_REQ, LOW);
 			volt_scale = (int)volt_pre_scale << 4;
 			volt = (double)volt_scale/4096.0 * 5.0;
 			times = time_div * (double)counter;
@@ -68,6 +71,7 @@ int main(void)
 		// If we are not done reading or writing, then we are in the write 
 		// state so standby for now as buffer is still filling
 		else {
+			printf("else: %d\n", counter);
 			continue;
 		}
 	}
