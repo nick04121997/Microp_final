@@ -24,8 +24,8 @@ int main(void)
 	double volt;
 	int counter = 0;
 
-	int clock_speed = 1;
-	double time_div = 1.0/(double)clock_speed;
+	int clock_speed = 156250;
+	double time_div = 16.0/(double)clock_speed;
 
 	pioInit();
 	spiInit(clock_speed, 0);
@@ -34,8 +34,21 @@ int main(void)
 	pinMode(FULL, INPUT);
 	pinMode(DATA_REQ, OUTPUT);
 
-	FILE *gnuplot = popen("gnuplot", "w");
-	fprintf(gnuplot, "plot '-'\n");
+	FILE *gnuplot_data;
+	gnuplot_data = fopen("oscilloscope_gnuplot_data.dat","w");
+        fprintf(gnuplot_data,"# X Y\n");
+	fclose(gnuplot_data);
+	char myfile[] = "oscilloscope_gnuplot_data.dat";
+	gnuplot_ctrl * h;
+	h = gnuplot_init();
+	gnuplot_setstyle(h, "lines");
+	gnuplot_set_xlabel(h, "Time");
+        gnuplot_set_ylabel(h, "Voltage");
+	gnuplot_cmd(h, "set xrange [0:.02]");
+	gnuplot_cmd(h, "set yrange [0:5]");
+        gnuplot_cmd(h, "plot '%s'", myfile);
+	gnuplot_data = fopen("oscilloscope_gnuplot_data.dat","w");
+
 
 	while(1) {
 
@@ -43,14 +56,15 @@ int main(void)
 		// after set PI_GRAPH_DONE high to reset all adr on FPGA and clear
 		// gnuplot and reset counter
 		if (digitalRead(DONE_READING)) {
+			fclose(gnuplot_data);
 			printf("done reading: %d\n", counter);
-			fprintf(gnuplot, "e\n");
+			gnuplot_cmd(h,"replot");
 			delayMillis(5000);
-			fflush(gnuplot);
-
+			gnuplot_data = fopen("oscilloscope_gnuplot_data.dat","w");
+			fprintf(gnuplot_data,"# X Y\n");
 			counter = 0;
 			digitalWrite(PI_GRAPH_DONE, HIGH);
-			delayMillis(100);
+			delayMillis(3000);
 			digitalWrite(PI_GRAPH_DONE, LOW);
 		}
 
@@ -65,7 +79,7 @@ int main(void)
 			volt_scale = (int)volt_pre_scale << 4;
 			volt = (double)volt_scale/4096.0 * 5.0;
 			times = time_div * (double)counter;
-			fprintf(gnuplot, "%lf %lf\n", volt, times);
+			fprintf(gnuplot_data, "  %lf %lf\n", times, volt);
 			counter++;
 		}
 		// If we are not done reading or writing, then we are in the write 
